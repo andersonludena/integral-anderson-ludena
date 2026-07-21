@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Gestión - Restaurante</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-white d-flex align-items-center vh-100">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-5">
+        <div class="card bg-secondary text-white shadow-lg border-0 rounded-4 p-4 text-center">
+          <h2 class="fw-bold mb-3">🍽️ Restaurante Live</h2>
+          <p class="text-light opacity-75 mb-4">Selecciona tu rol para acceder al sistema en tiempo real</p>
+          
+          <form id="loginForm">
+            <div class="mb-3 text-start">
+              <label class="form-label fw-bold">Tu Nombre</label>
+              <input type="text" id="nombreInput" class="form-control form-control-lg" placeholder="Ej. Anderson Ludeña" required>
+            </div>
+            
+            <div class="mb-4 text-start">
+              <label class="form-label fw-bold">Rol en la Empresa</label>
+              <select id="rolSelect" class="form-select form-select-lg" required>
+                <option value="mozo">Mozo (Toma de Pedidos)</option>
+                <option value="cocinero">Cocinero (Gestión de Cocina)</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-warning w-100 btn-lg fw-bold">Ingresar al Sistema</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('nombreInput').value;
+      const rol = document.getElementById('rolSelect').value;
+
+      // Guardamos temporalmente en el navegador los datos del usuario
+      localStorage.setItem('usuarioNombre', nombre);
+      localStorage.setItem('usuarioRol', rol);
+
+      // Redirigimos a la pantalla según el rol seleccionado
+      if (rol === 'mozo') {
+        window.location.href = 'mozo.html';
+      } else {
+        window.location.href = 'cocina.html';
+      }
+    });
+  </script>
+</body>
+</html>

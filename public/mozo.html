@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Mozo - Pedidos en Vivo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Carga la librería cliente de Socket.IO que nos provee nuestro servidor Node -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-light">
+  <!-- Header -->
+  <nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+      <span class="navbar-brand mb-0 h1">📋 Módulo del Mozo</span>
+      <span class="text-white" id="userDisplay"></span>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Alerta en tiempo real -->
+    <div id="notificacionLive" class="alert alert-success alert-dismissible fade show d-none" role="alert">
+      <strong>🎉 ¡Pedido Listo!</strong> <span id="notifTexto"></span>
+    </div>
+
+    <div class="row">
+      <!-- Columna Izquierda: Formulario de Pedido -->
+      <div class="col-md-5 mb-4">
+        <div class="card shadow-sm border-0 p-4">
+          <h4 class="fw-bold mb-3 text-primary">Crear Nuevo Pedido</h4>
+          <form id="orderForm">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Número de Mesa</label>
+              <select id="mesaSelect" class="form-select" required>
+                <option value="Mesa 1">Mesa 1</option>
+                <option value="Mesa 2">Mesa 2</option>
+                <option value="Mesa 3">Mesa 3</option>
+                <option value="Mesa 4">Mesa 4</option>
+                <option value="Mesa 5">Mesa 5</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">Selecciona los Platos</label>
+              <div class="form-check">
+                <input class="form-check-input plato-check" type="checkbox" value="Hamburguesa Clásica" id="p1">
+                <label class="form-check-label" for="p1">Hamburguesa Clásica</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input plato-check" type="checkbox" value="Ensalada César" id="p2">
+                <label class="form-check-label" for="p2">Ensalada César</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input plato-check" type="checkbox" value="Lomo Saltado" id="p3">
+                <label class="form-check-label" for="p3">Lomo Saltado</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input plato-check" type="checkbox" value="Refresco de Chicha 1L" id="p4">
+                <label class="form-check-label" for="p4">Refresco de Chicha 1L</label>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 fw-bold">🚀 Enviar Pedido a Cocina</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Estado de Mis Pedidos -->
+      <div class="col-md-7">
+        <div class="card shadow-sm border-0 p-4">
+          <h4 class="fw-bold mb-3 text-secondary">Estado de Mis Pedidos</h4>
+          <div id="listaPedidos" class="row">
+            <!-- Los pedidos dinámicos aparecerán aquí -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    const mozoNombre = localStorage.getItem('usuarioNombre') || 'Mozo 1';
+    document.getElementById('userDisplay').innerText = `Mozo: ${mozoNombre}`;
+
+    // Cargar pedidos existentes al iniciar
+    fetch('/api/pedidos')
+      .then(res => res.json())
+      .then(pedidos => renderizarPedidos(pedidos));
+
+    // 1. Enviar pedido vía WebSockets al backend
+    document.getElementById('orderForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const mesa = document.getElementById('mesaSelect').value;
+      const checkboxes = document.querySelectorAll('.plato-check:checked');
+      const platos = Array.from(checkboxes).map(cb => cb.value);
+
+      if (platos.length === 0) {
+        alert('Por favor selecciona al menos un plato.');
+        return;
+      }
+
+      const nuevoPedido = {
+        mesa,
+        platos,
+        mozoNombre,
+        estado: 'Pendiente'
+      };
+
+      // EMITIMOS EL EVENTO EN TIEMPO REAL
+      socket.emit('nuevo-pedido', nuevoPedido);
+
+      // Limpiar checkbox
+      checkboxes.forEach(cb => cb.checked = false);
+    });
+
+    // 2. Escuchar cuando SE CREA o ACTUALIZA un pedido en tiempo real
+    socket.on('recibir-pedido', () => {
+      refrescarPedidos();
+    });
+
+    socket.on('estado-actualizado', (pedidoActualizado) => {
+      refrescarPedidos();
+
+      // NOTIFICACIÓN EN VIVO al Mozo cuando el pedido esté listo
+      if (pedidoActualizado.estado === 'Listo para Servir' && pedidoActualizado.mozoNombre === mozoNombre) {
+        const notif = document.getElementById('notificacionLive');
+        document.getElementById('notifTexto').innerText = `El pedido de la ${pedidoActualizado.mesa} está ¡Listo para Servir!`;
+        notif.classList.remove('d-none');
+      }
+    });
+
+    function refrescarPedidos() {
+      fetch('/api/pedidos')
+        .then(res => res.json())
+        .then(pedidos => renderizarPedidos(pedidos));
+    }
+
+    function renderizarPedidos(pedidos) {
+      const container = document.getElementById('listaPedidos');
+      container.innerHTML = '';
+
+      // Filtramos solo los pedidos de este mozo
+      const misPedidos = pedidos.filter(p => p.mozoNombre === mozoNombre);
+
+      if(misPedidos.length === 0) {
+        container.innerHTML = '<p class="text-muted">No has enviado ningún pedido aún.</p>';
+        return;
+      }
+
+      misPedidos.forEach(p => {
+        let badgeColor = 'bg-warning text-dark';
+        if (p.estado === 'En Preparación') badgeColor = 'bg-info text-dark';
+        if (p.estado === 'Listo para Servir') badgeColor = 'bg-success';
+
+        container.innerHTML += `
+          <div class="col-12 mb-3">
+            <div class="card border border-2 p-3">
+              <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">${p.mesa}</h5>
+                <span class="badge ${badgeColor} fs-6">${p.estado}</span>
+              </div>
+              <small class="text-muted mb-2">Platos: ${p.platos.join(', ')}</small>
+            </div>
+          </div>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
